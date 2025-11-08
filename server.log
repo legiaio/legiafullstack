@@ -1,0 +1,50 @@
+
+> legia@0.1.0 dev
+> next dev --port 12000 --hostname 0.0.0.0
+
+   ▲ Next.js 16.0.1 (Turbopack)
+   - Local:        http://localhost:12000
+   - Network:      http://0.0.0.0:12000
+   - Environments: .env
+
+ ✓ Starting...
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+ ✓ Ready in 1132ms
+ ⚠ Cross origin request detected from work-1-ynvvzikvxitjyngh.prod-runtime.all-hands.dev to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ GET /auth/register 200 in 3.4s (compile: 3.0s, proxy.ts: 115ms, render: 279ms)
+ GET /api/auth/session 200 in 1505ms (compile: 1476ms, render: 29ms)
+ GET /auth/signin?from=%2F 200 in 705ms (compile: 620ms, proxy.ts: 9ms, render: 77ms)
+ GET /api/auth/session 200 in 38ms (compile: 27ms, render: 11ms)
+Registration API called
+Request body: {
+  name: 'Test User',
+  email: 'test@example.com',
+  password: 'testpassword123',
+  role: 'CLIENT'
+}
+Parsed data: { name: 'Test User', email: 'test@example.com', role: 'CLIENT' }
+Checking for existing user...
+Existing user check complete: false
+ POST /api/auth/register 201 in 751ms (compile: 396ms, render: 354ms)
+ GET /auth/register 200 in 55ms (compile: 5ms, proxy.ts: 5ms, render: 45ms)
+ GET /api/auth/session 200 in 42ms (compile: 33ms, render: 9ms)
+Registration API called
+Request body: {
+  name: 'Jane Smith',
+  email: 'jane@example.com',
+  password: 'password123',
+  role: 'CLIENT'
+}
+Parsed data: { name: 'Jane Smith', email: 'jane@example.com', role: 'CLIENT' }
+Checking for existing user...
+Existing user check complete: false
+ POST /api/auth/register 201 in 345ms (compile: 2ms, render: 343ms)
+ GET /auth/signin 200 in 27ms (compile: 3ms, proxy.ts: 4ms, render: 19ms)
+ GET /api/auth/providers 200 in 35ms (compile: 28ms, render: 7ms)
+ GET /api/auth/csrf 200 in 9ms (compile: 3ms, render: 6ms)
+ POST /api/auth/callback/credentials 200 in 343ms (compile: 2ms, render: 341ms)
+ GET /api/auth/session 200 in 10ms (compile: 2ms, render: 8ms)
+ GET /api/auth/session 200 in 10ms (compile: 1637µs, render: 8ms)
+ GET /dashboard 200 in 993ms (compile: 847ms, proxy.ts: 10ms, render: 136ms)
+ GET /dashboard 200 in 49ms (compile: 4ms, proxy.ts: 6ms, render: 39ms)
