@@ -34,8 +34,9 @@ export class ProfessionalMatchingService {
       const professionals = await prisma.professional.findMany({
         where: {
           serviceTypes: {
-            has: projectBrief.serviceType
-          },
+            path: '$',
+            array_contains: [projectBrief.serviceType]
+          } as any,
           minBudget: {
             lte: projectBrief.estimatedBudget
           },
@@ -196,7 +197,7 @@ export class ProfessionalMatchingService {
       // Features relevance (basic keyword matching)
       const projectKeywords = projectBrief.jobDescription.toLowerCase().split(' ')
       const portfolioKeywords = [
-        ...portfolio.features.map(f => f.toLowerCase()),
+        ...((portfolio.features as string[]) || []).map(f => f.toLowerCase()),
         portfolio.description.toLowerCase()
       ].join(' ')
 
@@ -276,8 +277,9 @@ export class ProfessionalMatchingService {
     }
 
     // Service specialization
-    if (professional.serviceTypes.length === 1) {
-      reasons.push(`Specialized in ${professional.serviceTypes[0].toLowerCase().replace('_', ' ')}`)
+    const serviceTypes = (professional.serviceTypes as string[]) || []
+    if (serviceTypes.length === 1) {
+      reasons.push(`Specialized in ${serviceTypes[0].toLowerCase().replace('_', ' ')}`)
     }
 
     return reasons.slice(0, 3) // Limit to top 3 reasons

@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "env": {
+    "NEXTAUTH_URL": "@nextauth_url",
+    "NEXTAUTH_SECRET": "@nextauth_secret",
+    "GOOGLE_CLIENT_ID": "@google_client_id",
+    "GOOGLE_CLIENT_SECRET": "@google_client_secret",
+    "APPLE_ID": "@apple_id",
+    "APPLE_SECRET": "@apple_secret",
+    "DATABASE_URL": "@database_url",
+    "GEMINI_API_KEY": "@gemini_api_key",
+    "MIDTRANS_SERVER_KEY": "@midtrans_server_key",
+    "MIDTRANS_CLIENT_KEY": "@midtrans_client_key",
+    "XENDIT_SECRET_KEY": "@xendit_secret_key",
+    "TRIPAY_API_KEY": "@tripay_api_key",
+    "TRIPAY_PRIVATE_KEY": "@tripay_private_key",
+    "TRIPAY_MERCHANT_CODE": "@tripay_merchant_code"
+  }
+}

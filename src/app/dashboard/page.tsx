@@ -67,7 +67,9 @@ export default async function DashboardPage() {
             <p className="text-sm text-gray-600 mb-4">
               Track progress and communicate with professionals.
             </p>
-            <Button variant="outline" className="w-full">View Projects</Button>
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/projects">View Projects</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

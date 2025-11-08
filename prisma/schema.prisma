@@ -85,12 +85,25 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+  EXPIRED
+  CANCELLED
 }
 
 enum PaymentGateway {
   MIDTRANS
   XENDIT
   TRIPAY
+}
+
+enum OrderStatus {
+  PENDING
+  AWAITING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
 }
 
 enum KYCStatus {
@@ -128,6 +141,17 @@ model User {
   reviews       Review[]
   chatMessages  ChatMessage[]
   notifications Notification[]
+  escrowTransactions EscrowTransaction[]
+  disputesRaised EscrowDispute[] @relation("DisputesRaised")
+  disputesResolved EscrowDispute[] @relation("DisputesResolved")
+  
+  // Project Management Relations
+  clientProjectManagement ProjectManagement[] @relation("ClientProjectManagement")
+  professionalProjectManagement ProjectManagement[] @relation("ProfessionalProjectManagement")
+  assignedTasks ProjectTask[] @relation("AssignedTasks")
+  sentProjectMessages ProjectMessage[] @relation("SentProjectMessages")
+  uploadedProjectFiles ProjectFile[] @relation("UploadedProjectFiles")
+  taskComments TaskComment[] @relation("TaskComments")
 
   @@map("users")
 }
@@ -162,6 +186,22 @@ model Professional {
   orderItems        OrderItem[]
 
   @@map("professionals")
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  title       String
+  description String   
+  category    String
+  price       Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  projectManagement ProjectManagement[]
+
+  @@map("services")
 }
 
 model Portfolio {
@@ -228,12 +268,14 @@ model Order {
   totalAmount     Float        
   vatAmount       Float        
   feeAmount       Float        
+  status          OrderStatus    @default(PENDING)
   paymentStatus   PaymentStatus  @default(PENDING)
   paymentGateway  PaymentGateway?
   paymentData     Json?
   shippingAddress Json
   paymentTerms    Int
   termAmounts     Json // Array of amounts per term
+  paidAt          DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -241,6 +283,7 @@ model Order {
   user            User          @relation(fields: [userId], references: [id])
   project         Project?      @relation(fields: [projectId], references: [id])
   orderItems      OrderItem[]
+  payments        Payment[]
   escrows         Escrow[]
   paymentTermList PaymentTerm[]
 
@@ -267,20 +310,129 @@ model OrderItem {
   @@map("order_items")
 }
 
+enum EscrowStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  DISPUTED
+  CANCELLED
+  REFUNDED
+}
+
+enum EscrowTermStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+  RELEASED
+  DISPUTED
+}
+
+enum EscrowTransactionType {
+  DEPOSIT
+  RELEASE
+  REFUND
+  FEE
+  DISPUTE_HOLD
+  DISPUTE_RELEASE
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
 model Escrow {
   id            String        @id @default(cuid())
   orderId       String
   totalAmount   Float       
   heldAmount    Float       
   releasedAmount Float      @default(0) 
-  status        PaymentStatus @default(PENDING)
+  status        EscrowStatus @default(PENDING)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   // Relations
   order Order @relation(fields: [orderId], references: [id])
+  terms EscrowTerm[]
+  transactions EscrowTransaction[]
+  disputes EscrowDispute[]
 
   @@map("escrows")
+}
+
+model EscrowTerm {
+  id              String           @id @default(cuid())
+  escrowId        String
+  termNumber      Int
+  name            String
+  description     String           
+  percentage      Int
+  amount          Float          
+  status          EscrowTermStatus @default(PENDING)
+  dueDate         DateTime?
+  completedAt     DateTime?
+  approvedAt      DateTime?
+  releasedAt      DateTime?
+  documentation   Json             // String[]
+  approvalRequired Boolean         @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  escrow Escrow @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  transactions EscrowTransaction[]
+  disputes EscrowDispute[]
+
+  @@unique([escrowId, termNumber])
+  @@map("escrow_terms")
+}
+
+model EscrowTransaction {
+  id          String                @id @default(cuid())
+  escrowId    String
+  type        EscrowTransactionType
+  amount      Float               
+  description String                
+  termId      String?
+  paymentId   String?
+  createdBy   String
+  metadata    Json?
+  createdAt   DateTime              @default(now())
+
+  // Relations
+  escrow Escrow @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  term   EscrowTerm? @relation(fields: [termId], references: [id])
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("escrow_transactions")
+}
+
+model EscrowDispute {
+  id          String        @id @default(cuid())
+  escrowId    String
+  termId      String?
+  raisedBy    String
+  reason      String
+  description String        
+  evidence    Json          // String[]
+  status      DisputeStatus @default(OPEN)
+  resolution  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  escrow Escrow @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  term   EscrowTerm? @relation(fields: [termId], references: [id])
+  raiser User @relation("DisputesRaised", fields: [raisedBy], references: [id])
+  resolver User? @relation("DisputesResolved", fields: [resolvedBy], references: [id])
+
+  @@map("escrow_disputes")
 }
 
 model PaymentTerm {
@@ -299,6 +451,45 @@ model PaymentTerm {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("payment_terms")
+}
+
+model Payment {
+  id              String         @id @default(cuid())
+  orderId         String
+  gateway         PaymentGateway
+  amount          Float        
+  paidAmount      Float?       
+  currency        String         @default("IDR")
+  status          PaymentStatus  @default(PENDING)
+  paymentMethod   String?
+  paymentUrl      String?
+  qrCode          String?
+  virtualAccount  String?
+  expiryTime      DateTime?
+  transactionTime DateTime?
+  settlementTime  DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model WebhookLog {
+  id        String         @id @default(cuid())
+  gateway   PaymentGateway
+  paymentId String
+  orderId   String
+  status    String
+  payload   String         // JSON string
+  signature String?
+  processed Boolean        @default(false)
+  error     String?
+  createdAt DateTime       @default(now())
+
+  @@map("webhook_logs")
 }
 
 model TermProgress {
@@ -421,4 +612,179 @@ model AIModelConfig {
   updatedAt   DateTime @updatedAt
 
   @@map("ai_model_configs")
+}
+
+// Project Management System
+enum ProjectManagementStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectManagementPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  SYSTEM
+  MILESTONE_UPDATE
+  TASK_UPDATE
+}
+
+model ProjectManagement {
+  id               String                     @id @default(cuid())
+  title            String
+  description      String                     
+  status           ProjectManagementStatus    @default(DRAFT)
+  priority         ProjectManagementPriority @default(MEDIUM)
+  budget           Float
+  currency         String                     @default("IDR")
+  startDate        DateTime
+  endDate          DateTime?
+  clientId         String
+  professionalId   String?
+  serviceId        String
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  // Relations
+  client       User                    @relation("ClientProjectManagement", fields: [clientId], references: [id])
+  professional User?                   @relation("ProfessionalProjectManagement", fields: [professionalId], references: [id])
+  service      Service                 @relation(fields: [serviceId], references: [id])
+  tasks        ProjectTask[]
+  milestones   ProjectMilestone[]
+  messages     ProjectMessage[]
+  files        ProjectFile[]
+
+  @@map("project_management")
+}
+
+model ProjectTask {
+  id          String       @id @default(cuid())
+  projectId   String
+  title       String
+  description String?      
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  assignedTo  String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  project  ProjectManagement @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?             @relation("AssignedTasks", fields: [assignedTo], references: [id])
+  comments TaskComment[]
+
+  @@map("project_tasks")
+}
+
+model ProjectMilestone {
+  id          String          @id @default(cuid())
+  projectId   String
+  title       String
+  description String?         
+  status      MilestoneStatus @default(PENDING)
+  amount      Float
+  dueDate     DateTime
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  project ProjectManagement @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_milestones")
+}
+
+model ProjectMessage {
+  id        String      @id @default(cuid())
+  projectId String
+  senderId  String
+  content   String      
+  type      MessageType @default(TEXT)
+  createdAt DateTime    @default(now())
+
+  // Relations
+  project     ProjectManagement   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender      User                @relation("SentProjectMessages", fields: [senderId], references: [id])
+  attachments MessageAttachment[]
+
+  @@map("project_messages")
+}
+
+model ProjectFile {
+  id           String   @id @default(cuid())
+  projectId    String
+  uploadedById String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  project    ProjectManagement @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User              @relation("UploadedProjectFiles", fields: [uploadedById], references: [id])
+
+  @@map("project_files")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  content   String   
+  createdAt DateTime @default(now())
+
+  // Relations
+  task   ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User        @relation("TaskComments", fields: [authorId], references: [id])
+
+  @@map("task_comments")
+}
+
+model MessageAttachment {
+  id        String @id @default(cuid())
+  messageId String
+  filename  String
+  url       String
+  mimeType  String
+  size      Int
+
+  // Relations
+  message ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("message_attachments")
 }
